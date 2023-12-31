@@ -24,9 +24,9 @@ jobs:
           exit 1
         fi
 
-        - name: Codacy Coverage Reporter
-        if: success()
-        env:
-          CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
-        run: |
-          bash <(curl -Ls https://coverage.codacy.com/get.sh) report --force-coverage-parser go -r .coverage/cover.out
+    - name: Codacy Coverage Reporter
+      if: success()
+      env:
+        CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
+      run: |
+        bash <(curl -Ls https://coverage.codacy.com/get.sh) report --force-coverage-parser go -r .coverage/cover.out
