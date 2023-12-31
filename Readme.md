@@ -1,4 +1,4 @@
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/54e6788204d54ffeb627e2da1958c9cc)](https://app.codacy.com/gh/B87/file-bridge/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade) ![build main](https://github.com/B87/file-bridge/actions/workflows/go.yml/badge.svg?branch=main)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/54e6788204d54ffeb627e2da1958c9cc)](https://app.codacy.com/gh/B87/file-bridge/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade) [![Codacy Badge](https://app.codacy.com/project/badge/Coverage/54e6788204d54ffeb627e2da1958c9cc)](https://app.codacy.com/gh/B87/file-bridge/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_coverage) ![build main](https://github.com/B87/file-bridge/actions/workflows/go.yml/badge.svg?branch=main)
 # File Bridge: Go Multi-tool for File Manipulation across File Systems
 
 File Bridge (fileb) is a versatile tool developed in Go (Golang) designed for efficient file and directory manipulation. It provides both a Command-Line Interface (CLI) and a library. 
