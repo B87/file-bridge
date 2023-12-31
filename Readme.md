@@ -1,3 +1,4 @@
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/aae54118e21446aabcaaab3fee3f8fd8)](https://app.codacy.com/gh/B87/file-bridge?utm_source=github.com&utm_medium=referral&utm_content=B87/file-bridge&utm_campaign=Badge_Grade)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/54e6788204d54ffeb627e2da1958c9cc)](https://app.codacy.com/gh/B87/file-bridge/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade) 
 # File Bridge: Go Multi-tool for File Manipulation across File Systems
 
