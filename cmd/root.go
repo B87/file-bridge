@@ -9,10 +9,10 @@ import (
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
-	Use:   "filer",
-	Short: "Filer CLI",
+	Use:   "fileb",
+	Short: "File Bridge CLI",
 	Long: `
-Filer CLI interacts with files across file systems.
+File Bridge CLI interacts with files across file systems.
 `,
 }
 
