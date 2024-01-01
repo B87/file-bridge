@@ -17,10 +17,22 @@ var (
 	ErrNotFound      = errors.New("file not found")
 	ErrAlreadyExists = errors.New("already exists")
 	ErrDirNotEmpty   = errors.New("directory not empty")
+
+	ErrConnecting    = errors.New("failed to connect filesystem")
+	ErrDisconnecting = errors.New("failed to disconnect filesystem")
 )
 
 // FS is an abstraction for file system operations.
 type FS interface {
+	/*
+		Connect connects to the file system.
+		It should be called before any other method since some file systems
+		may require an initialization.
+	*/
+	Connect() error
+	// Disconnect closes the connection from the file system.
+	Disconnect() error
+
 	// Create creates a file.
 	Writer(fileName URI) (io.WriteCloser, error)
 	// Open opens a file.
@@ -40,24 +52,33 @@ type FS interface {
 	MkDir(path URI) (Node, error)
 }
 
-// TODO: Use URI instead of name and path for cleaner hierarchy
 type Node struct {
-	Name     string
-	FullPath string
-	IsDir    bool
+	URI   URI
+	IsDir bool
+	// Filesystem??
+	// Size??
+	// LastModified??
+
 }
 
-func NewNode(fullPath string, isDir bool) Node {
+func NewNode(uri URI, isDir bool) Node {
 	return Node{
-		Name:     path.Base(fullPath),
-		FullPath: fullPath,
-		IsDir:    isDir,
+		URI:   uri,
+		IsDir: isDir,
 	}
 }
 
+/*
+URI is a resource identifier. It is composed of a scheme and a path, separated by ":/"
+such : [scheme]:/[path]
+*/
 type URI struct {
+	// Scheme of the resource
 	Scheme string
-	Path   string
+	// Path of the resource in the scheme
+	Path string
+	// Name of the resource
+	Name string
 }
 
 func (u URI) String() string {
@@ -65,11 +86,9 @@ func (u URI) String() string {
 	return string(str)
 }
 
-func NewURI(scheme string, path string) URI {
-	return URI{
-		Scheme: scheme,
-		Path:   path,
-	}
+// NewURI creates a new URI from a scheme and a path and sets the name to the base of the path
+func NewURI(s string, p string) URI {
+	return URI{Scheme: s, Path: p, Name: path.Base(p)}
 }
 
 var ErrInvalidURI = errors.New("invalid URI")
@@ -78,7 +97,6 @@ var re = regexp.MustCompile(`^(?:(\w+):\/\/)?(.+)$`)
 
 func ParseURI(uri string) (URI, error) {
 	// It looks for an optional scheme followed by '://', and then captures the rest of the string
-
 	matches := re.FindStringSubmatch(uri)
 	if matches == nil || len(matches) != 3 {
 		return NewURI("", uri), ErrInvalidURI

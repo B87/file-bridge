@@ -14,6 +14,9 @@ type LocalFS struct{}
 
 func NewLocalFS() *LocalFS { return &LocalFS{} }
 
+func (LocalFS) Connect() error    { return nil }
+func (LocalFS) Disconnect() error { return nil }
+
 func (LocalFS) Writer(name URI) (io.WriteCloser, error) {
 	return os.Create(name.Path)
 }
@@ -156,14 +159,13 @@ func (l *LocalFS) List(dir URI, recursive bool) ([]Node, error) {
 		if err != nil {
 			return err
 		}
-		// Skip the root directory itself
-		if path == dir.Path {
+		if dir.Path == path && info.IsDir() {
 			return nil
 		}
 		if info.IsDir() {
-			files = append(files, NewNode(path, true))
+			files = append(files, NewNode(NewURI(dir.Scheme, path), true))
 		} else {
-			files = append(files, NewNode(path, false))
+			files = append(files, NewNode(NewURI(dir.Scheme, path), false))
 		}
 
 		// Skip directories if not recursive mode
@@ -230,11 +232,11 @@ func (l *LocalFS) Get(path URI) (Node, error) {
 	info, err := os.Stat(path.Path)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return Node{FullPath: path.Path}, fmt.Errorf("%w : %s", ErrNotFound, path)
+			return Node{URI: path}, fmt.Errorf("%w : %s", ErrNotFound, path)
 		}
-		return Node{FullPath: path.Path}, err
+		return Node{URI: path}, err
 	}
-	return NewNode(path.Path, info.IsDir()), nil
+	return NewNode(path, info.IsDir()), nil
 }
 
 func (l *LocalFS) IsEmpty(path URI) (bool, error) {
@@ -262,15 +264,16 @@ Returns newly created Node or error:
   - ErrAlreadyExists if path already exists
 */
 func (l *LocalFS) MkDir(path URI) (Node, error) {
+	node := NewNode(path, true)
 	_, err := os.Stat(path.Path)
 	if errors.Is(err, fs.ErrNotExist) {
 		if err := os.MkdirAll(path.Path, 0755); err != nil {
-			return Node{FullPath: path.Path}, err
+			return node, err
 		}
-		return NewNode(path.Path, true), nil
+		return node, nil
 	} else if err != nil {
-		return Node{FullPath: path.Path}, err
+		return node, err
 	} else {
-		return Node{FullPath: path.Path}, ErrAlreadyExists
+		return node, ErrAlreadyExists
 	}
 }

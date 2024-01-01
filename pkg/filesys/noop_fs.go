@@ -5,6 +5,9 @@ import "io"
 // NoopFS is a FileSystem implementation that does nothing.
 type NoopFS struct{}
 
+func (NoopFS) Connect() error    { return nil }
+func (NoopFS) Disconnect() error { return nil }
+
 func (NoopFS) Writer(name URI) (io.WriteCloser, error) {
 	if name.Path == "badFile.jpg" {
 		return NoopFile{io.Discard}, nil
