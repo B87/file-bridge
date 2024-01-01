@@ -151,6 +151,28 @@ func TestGet(t *testing.T) {
 	}
 }
 
+func TestMkDir(t *testing.T) {
+	testCases := []TestCase{
+		{name: "MkDir", src: NewURI(LocalScheme, "test"), err: nil},
+		{name: "MkDir already exists", src: NewURI(LocalScheme, "test"), err: ErrAlreadyExists},
+		{name: "MkDir recursive", src: NewURI(LocalScheme, "test/rec"), err: nil},
+	}
+	for _, tc := range testCases {
+		test := tc
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if test.err == ErrAlreadyExists {
+				filesys.MkDir(test.src)
+			}
+			node, err := filesys.MkDir(test.src)
+			Assert(t, err, test.err)
+			PathMustExist(t, test.src.Path)
+			Assert(t, node.URI.Name, test.src.Name)
+			RemoveTmp(t, test.src.Path)
+		})
+	}
+}
+
 // NewTmpDirOrFile creates a tmp dir or file depending on isDir and returns the path
 func NewTmpDirOrFile(t *testing.T, dir string, isDir bool) URI {
 	t.Helper()

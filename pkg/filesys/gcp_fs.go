@@ -41,23 +41,23 @@ func (fs *GCPBucketFS) Disconnect() error {
 	return fs.client.Close()
 }
 
-func (fs *GCPBucketFS) Writer(name URI) (io.WriteCloser, error) {
-	bucket, object := splitGCPPath(name.Path)
+func (fs *GCPBucketFS) Writer(uri URI) (io.WriteCloser, error) {
+	bucket, object := splitGCPPath(uri.Path)
 	wc := fs.client.Bucket(bucket).Object(object).NewWriter(fs.ctx)
 	return wc, nil
 }
 
-func (fs *GCPBucketFS) Reader(name URI) (io.ReadCloser, error) {
-	bucket, object := splitGCPPath(name.Path)
+func (fs *GCPBucketFS) Reader(uri URI) (io.ReadCloser, error) {
+	bucket, object := splitGCPPath(uri.Path)
 	rc, err := fs.client.Bucket(bucket).Object(object).NewReader(fs.ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open file %s: %w", name.Path, err)
+		return nil, fmt.Errorf("failed to open file %s: %w", uri.Path, err)
 	}
 	return rc, nil
 }
 
-func (fs *GCPBucketFS) Delete(name URI, recursive bool) error {
-	bucket, object := splitGCPPath(name.Path)
+func (fs *GCPBucketFS) Delete(uri URI, recursive bool) error {
+	bucket, object := splitGCPPath(uri.Path)
 	it := fs.client.Bucket(bucket).Objects(fs.ctx, &storage.Query{Prefix: object})
 	for {
 		attrs, err := it.Next()
@@ -161,7 +161,7 @@ func (fs *GCPBucketFS) MkDir(path URI) (Node, error) {
 	}
 	defer w.Close()
 	if _, err := io.Copy(w, &bytes.Buffer{}); err != nil {
-		log.Fatalf("Failed to create directory: %v", err)
+		return Node{}, err
 	}
 	return NewNode(path, true), nil
 }

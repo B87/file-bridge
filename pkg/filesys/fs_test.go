@@ -16,6 +16,7 @@ func TestParseURI(t *testing.T) {
 		{name: "local", in: "tmp.txt", wantURI: NewURI(LocalScheme, "tmp.txt"), wantErr: nil},
 		{name: "gcp bucket", in: "gs://tmp.txt", wantURI: NewURI(GCPBucketScheme, "tmp.txt"), wantErr: nil},
 		{name: "unknown", in: "moc://tmp.txt", wantURI: NewURI("moc", "tmp.txt"), wantErr: ErrUnknownScheme},
+		{name: "invalid", in: "", wantURI: NewURI("", ""), wantErr: ErrInvalidURI},
 	}
 
 	for _, tc := range testCases {
@@ -60,5 +61,4 @@ func TestCheckPrefix(t *testing.T) {
 
 		})
 	}
-
 }
