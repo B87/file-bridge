@@ -2,9 +2,9 @@ package filesys
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"path"
-	"strings"
 )
 
 /*
@@ -17,12 +17,6 @@ If the filesystems are different, perform a manual copy:
   - create the destination file
 */
 func Copy(src, dst URI, recursive bool) error {
-
-	// If the destination is a directory, append the source file name to the destination path
-	if strings.HasSuffix(dst.Path, "/") {
-		dst.Path = path.Join(dst.Path, src.Name)
-	}
-
 	srcFS := SchemeFS(src.Scheme)
 	dstFS := SchemeFS(dst.Scheme)
 	err := connectFilesystems(srcFS, dstFS)
@@ -30,6 +24,20 @@ func Copy(src, dst URI, recursive bool) error {
 		return err
 	}
 	defer disconnectFilesystems(srcFS, dstFS)
+
+	// If the destination is a directory, add the source file name to the destination path
+	srcNode, err := srcFS.Get(src)
+	if err != nil && !errors.Is(err, ErrNotFound) {
+		return fmt.Errorf("failed to get source file %s: %w", src.String(), err)
+	} else if errors.Is(err, ErrNotFound) {
+		return fmt.Errorf("source file %s does not exist", src.String())
+	}
+	if srcNode.IsDir {
+		dst.Path = path.Join(dst.Path, srcNode.URI.Name)
+		dstFS.MkDir(dst)
+	}
+	// If the filesystems are the same, use the filesystem's copy method
+	// we might get a better performance using the nateive copy method if exists
 	if srcFS == dstFS {
 		return srcFS.Copy(src, dst, recursive)
 	} else {
@@ -39,17 +47,7 @@ func Copy(src, dst URI, recursive bool) error {
 		}
 		for _, node := range nodes {
 			if !node.IsDir {
-				// Copy object from src to dst, if
-				srcFile, err := srcFS.Reader(node.URI)
-				if err != nil {
-					return err
-				}
-
-				dstFile, err := dstFS.Writer(node.URI)
-				if err != nil {
-					return err
-				}
-				_, err = io.Copy(dstFile, srcFile)
+				err := CopyFile(node.URI, dst, srcFS, dstFS)
 				if err != nil {
 					return err
 				}
@@ -57,6 +55,32 @@ func Copy(src, dst URI, recursive bool) error {
 		}
 		return nil
 	}
+}
+
+func CopyFile(src, dst URI, srcFS, dstFS FS) error {
+	srcFile, err := srcFS.Reader(src)
+	if err != nil {
+		return err
+	}
+	// Modify the destination path to include the file name
+	dst.Path = path.Join(dst.Path, src.Name)
+	dstFile, err := dstFS.Writer(dst)
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(dstFile, srcFile)
+	if err != nil {
+		return err
+	}
+	err = dstFile.Close()
+	if err != nil {
+		return err
+	}
+	err = srcFile.Close()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 /*

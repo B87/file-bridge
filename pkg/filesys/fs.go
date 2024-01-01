@@ -1,7 +1,6 @@
 package filesys
 
 import (
-	"encoding/json"
 	"errors"
 	"io"
 	"path"
@@ -40,8 +39,6 @@ type FS interface {
 
 	// Delete deletes a file or directory.
 	Delete(path URI, recursive bool) error
-	// Move moves a file or directory.
-	Move(old, new URI, recursive bool) error
 	// Copy copies a file or directory on the same file system.
 	Copy(old, new URI, recursive bool) error
 	// List lists files in a path.
@@ -82,8 +79,7 @@ type URI struct {
 }
 
 func (u URI) String() string {
-	str, _ := json.Marshal(u)
-	return string(str)
+	return u.Scheme + "://" + u.Path
 }
 
 // NewURI creates a new URI from a scheme and a path and sets the name to the base of the path

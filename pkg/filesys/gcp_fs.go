@@ -6,16 +6,22 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"path"
 	"strings"
 
 	"cloud.google.com/go/storage"
 	"google.golang.org/api/iterator"
 )
 
+type StorageClient interface {
+	Bucket(name string) *storage.BucketHandle
+	Close() error
+}
+
 // GCPBucketFS is a FileSystem implementation that uses a GCP bucket.
 type GCPBucketFS struct {
 	ctx    context.Context
-	client *storage.Client
+	client StorageClient
 }
 
 func NewGCPBucketFS() *GCPBucketFS {
@@ -36,13 +42,13 @@ func (fs *GCPBucketFS) Disconnect() error {
 }
 
 func (fs *GCPBucketFS) Writer(name URI) (io.WriteCloser, error) {
-	bucket, object := SplitGCPPath(name.Path)
+	bucket, object := splitGCPPath(name.Path)
 	wc := fs.client.Bucket(bucket).Object(object).NewWriter(fs.ctx)
 	return wc, nil
 }
 
 func (fs *GCPBucketFS) Reader(name URI) (io.ReadCloser, error) {
-	bucket, object := SplitGCPPath(name.Path)
+	bucket, object := splitGCPPath(name.Path)
 	rc, err := fs.client.Bucket(bucket).Object(object).NewReader(fs.ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file %s: %w", name.Path, err)
@@ -51,18 +57,30 @@ func (fs *GCPBucketFS) Reader(name URI) (io.ReadCloser, error) {
 }
 
 func (fs *GCPBucketFS) Delete(name URI, recursive bool) error {
-	return nil
-}
-func (fs *GCPBucketFS) Move(oldName, newName URI, recursive bool) error {
+	bucket, object := splitGCPPath(name.Path)
+	it := fs.client.Bucket(bucket).Objects(fs.ctx, &storage.Query{Prefix: object})
+	for {
+		attrs, err := it.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		err = fs.client.Bucket(bucket).Object(attrs.Name).Delete(fs.ctx)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 // Copy copies a file from one path to another inside the same GS filesystem.
 // Use manager Copy for cross filesystem copy.
 func (fs *GCPBucketFS) Copy(src, dst URI, recursive bool) error {
-	srcBucket, srcObject := SplitGCPPath(src.Path)
+	srcBucket, srcObject := splitGCPPath(src.Path)
 	srcObj := fs.client.Bucket(srcBucket).Object(srcObject)
-	dstBucket, dstObject := SplitGCPPath(dst.Path)
+	dstBucket, dstObject := splitGCPPath(dst.Path)
 	dstObj := fs.client.Bucket(dstBucket).Object(dstObject)
 	_, err := dstObj.CopierFrom(srcObj).Run(fs.ctx)
 	if err != nil {
@@ -71,14 +89,14 @@ func (fs *GCPBucketFS) Copy(src, dst URI, recursive bool) error {
 	return nil
 }
 
+// List lists files and folders in a path.
 func (fs *GCPBucketFS) List(dir URI, recursive bool) ([]Node, error) {
 	var files []Node
-	bucket, object := SplitGCPPath(dir.Path)
+	bucket, object := splitGCPPath(dir.Path)
 	query := storage.Query{Prefix: object}
 	if !recursive {
 		query.Delimiter = "/"
 	}
-
 	it := fs.client.Bucket(bucket).Objects(fs.ctx, &query)
 	for {
 		attrs, err := it.Next()
@@ -93,25 +111,43 @@ func (fs *GCPBucketFS) List(dir URI, recursive bool) ([]Node, error) {
 			files = append(files, NewNode(NewURI(dir.Scheme, attrs.Prefix), true))
 		} else {
 			// This is a file
-			files = append(files, NewNode(NewURI(dir.Scheme, attrs.Name), false))
+			files = append(files, NewNode(NewURI(dir.Scheme, path.Join(attrs.Bucket, attrs.Name)), false))
 		}
-
 	}
 	return files, nil
 }
 
 func (fs *GCPBucketFS) Get(uri URI) (Node, error) {
-	bucket, object := SplitGCPPath(uri.Path)
+	bucket, object := splitGCPPath(uri.Path)
 	object = strings.TrimSuffix(object, "/")
-	gsObj := fs.client.Bucket(bucket).Object(object)
-	_, err := gsObj.Attrs(fs.ctx)
-	if err != nil {
-		if err == storage.ErrObjectNotExist {
-			return NewNode(uri, false), ErrNotFound
+
+	it := fs.client.Bucket(bucket).Objects(
+		fs.ctx, &storage.Query{Prefix: object})
+
+	found := false
+	isDir := false
+
+	for {
+		attrs, err := it.Next()
+		if err == iterator.Done {
+			break
 		}
-		return Node{}, err
+		if err != nil {
+			return Node{}, err
+		}
+		if attrs.Name == object {
+			found = true // Exact match, it's a file
+			break
+		} else if strings.HasPrefix(attrs.Name, object+"/") {
+			found = true
+			isDir = true // Objects found with the prefix, it's a directory
+			break
+		}
 	}
-	return NewNode(uri, false), nil
+	if !found {
+		return NewNode(uri, false), ErrNotFound
+	}
+	return NewNode(uri, isDir), nil
 }
 
 func (fs *GCPBucketFS) MkDir(path URI) (Node, error) {
@@ -130,35 +166,12 @@ func (fs *GCPBucketFS) MkDir(path URI) (Node, error) {
 	return NewNode(path, true), nil
 }
 
-func (fs *GCPBucketFS) IsGSDir(uri URI) (bool, error) {
-
-	bucketName, objectName := SplitGCPPath(uri.Path)
-	objectName = strings.TrimSuffix(objectName, "/") // Ensure the URI does not end with a slash
-
-	it := fs.client.Bucket(bucketName).Objects(fs.ctx, &storage.Query{Prefix: objectName})
-	for {
-		attrs, err := it.Next()
-		if err == iterator.Done {
-			break
-		}
-		if err != nil {
-			return false, err
-		}
-
-		if attrs.Name == objectName {
-			return false, nil // Exact match found, it's an object
-		}
-	}
-	return true, nil // No exact match found, likely a directory
-}
-
-func SplitGCPPath(path string) (bucket string, object string) {
+func splitGCPPath(path string) (bucket string, object string) {
 	tree := strings.Split(path, "/")
 	if len(tree) < 1 {
 		return "", ""
 	}
 	bucket = tree[0]
-
 	if len(tree) < 2 {
 		return bucket, ""
 	}

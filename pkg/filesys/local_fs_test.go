@@ -87,40 +87,6 @@ func TestList(t *testing.T) {
 	}
 }
 
-func TestMove(t *testing.T) {
-	fileTests := []TestCase{
-		{name: "Move file", src: NewURI(LocalScheme, "*.txt"), dst: NewURI(LocalScheme, "test"), rec: true, err: nil, create: true, isDir: false},
-		{name: "Move non-existent file", src: NewURI(LocalScheme, "*.txt"), dst: NewURI(LocalScheme, "test"), rec: true, err: ErrNotFound, create: false, isDir: false},
-
-		{name: "Move dir", src: NewURI(LocalScheme, "*"), dst: NewURI(LocalScheme, "test"), rec: true, err: nil, create: true, isDir: true},
-		{name: "Move non-existent dir", src: NewURI(LocalScheme, "*"), dst: NewURI(LocalScheme, "test"), rec: true, err: ErrNotFound, create: false, isDir: true},
-	}
-
-	for _, tc := range fileTests {
-		test := tc
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			if test.create {
-				srcPath := NewTmpDirOrFile(t, test.src.Path, test.isDir)
-				test.src.Path = srcPath.Path // update src to tmpPath
-				dstPath := NewTmpDir(t, "", test.dst.Path)
-				test.dst.Path = dstPath // update dst to dstPath
-			}
-			err := filesys.Move(test.src, test.dst, test.rec)
-			if err != nil {
-				if !errors.Is(err, test.err) {
-					t.Logf("Expected error %v, got %v", test.err, err)
-				}
-			}
-			if test.create {
-				PathMustNotExist(t, test.src.Path)
-				PathMustExist(t, test.dst.Path)
-				RemoveTmp(t, test.dst.Path)
-			}
-		})
-	}
-}
-
 func TestCopy(t *testing.T) {
 	testCases := []TestCase{
 		{name: "Copy file", src: NewURI(LocalScheme, "*"), dst: NewURI(LocalScheme, "test"), rec: true, err: nil, create: true, isDir: false},
