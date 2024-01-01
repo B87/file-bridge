@@ -29,9 +29,9 @@ var ListCmd = &cobra.Command{
 		files, err := filesys.List(uri, recursive)
 		fatalIfError(err)
 
-		logger.Debug("Listing files in", dir, "from file system", uri.Scheme, "...\n")
+		logger.Debug("Listing files in", uri.Path, "from file system", uri.Scheme, "...\n")
 		for _, file := range files {
-			logger.Print(file.Name)
+			logger.Print(file.URI.Path)
 		}
 
 	},

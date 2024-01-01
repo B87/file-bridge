@@ -4,7 +4,6 @@ import (
 	"errors"
 	"io/fs"
 	"os"
-	"path"
 	"strings"
 	"testing"
 )
@@ -50,7 +49,7 @@ func TestDelete(t *testing.T) {
 
 func TestList(t *testing.T) {
 	testCases := []TestCase{
-		{name: "List file", src: NewURI(LocalScheme, "*.txt"), rec: true, err: nil, create: true, isDir: false},
+		{name: "List file", src: NewURI(LocalScheme, "*"), rec: true, err: nil, create: true, isDir: false},
 		{name: "List non-existent file", src: NewURI(LocalScheme, "non-existent-file"), rec: true, err: ErrNotFound, create: false, isDir: false},
 
 		{name: "List dir", src: NewURI(LocalScheme, "*"), rec: true, err: nil, create: true, isDir: true},
@@ -62,59 +61,27 @@ func TestList(t *testing.T) {
 			t.Parallel()
 			if test.create {
 				tmpPath := NewTmpDir(t, "", test.src.Path)
-				tmpFile := path.Join(tmpPath, "test.txt")
-				_, err := os.Create(tmpFile)
-				if err != nil {
-					t.Logf("Error creating tmp file %s: %v", tmpFile, err)
-					t.Fail()
+				file1 := NewTmpFile(t, tmpPath, "test1.txt")
+				NewTmpFile(t, tmpPath, "test2.txt")
+				if test.isDir {
+					test.src.Path = tmpPath // update src to tmp folder
+				} else {
+					test.src.Path = file1 // update src to tmp file 1
 				}
-				test.src.Path = tmpPath // update src to tmpPath
 			}
-
 			files, err := filesys.List(test.src, test.rec)
 			if err != nil {
 				Assert(t, err, test.err)
 			}
 			if test.create {
-				if test.isDir && len(files) != 1 {
+				if test.isDir && len(files) != 2 {
+					t.Logf("Expected 2 files, got %v", len(files))
+					t.Fail()
+				} else if !test.isDir && len(files) != 1 {
 					t.Logf("Expected 1 file, got %v", len(files))
 					t.Fail()
 				}
 				RemoveTmp(t, test.src.Path)
-			}
-		})
-	}
-}
-
-func TestMove(t *testing.T) {
-	fileTests := []TestCase{
-		{name: "Move file", src: NewURI(LocalScheme, "*.txt"), dst: NewURI(LocalScheme, "test"), rec: true, err: nil, create: true, isDir: false},
-		{name: "Move non-existent file", src: NewURI(LocalScheme, "*.txt"), dst: NewURI(LocalScheme, "test"), rec: true, err: ErrNotFound, create: false, isDir: false},
-
-		{name: "Move dir", src: NewURI(LocalScheme, "*"), dst: NewURI(LocalScheme, "test"), rec: true, err: nil, create: true, isDir: true},
-		{name: "Move non-existent dir", src: NewURI(LocalScheme, "*"), dst: NewURI(LocalScheme, "test"), rec: true, err: ErrNotFound, create: false, isDir: true},
-	}
-
-	for _, tc := range fileTests {
-		test := tc
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			if test.create {
-				srcPath := NewTmpDirOrFile(t, test.src.Path, test.isDir)
-				test.src.Path = srcPath.Path // update src to tmpPath
-				dstPath := NewTmpDir(t, "", test.dst.Path)
-				test.dst.Path = dstPath // update dst to dstPath
-			}
-			err := filesys.Move(test.src, test.dst, test.rec)
-			if err != nil {
-				if !errors.Is(err, test.err) {
-					t.Logf("Expected error %v, got %v", test.err, err)
-				}
-			}
-			if test.create {
-				PathMustNotExist(t, test.src.Path)
-				PathMustExist(t, test.dst.Path)
-				RemoveTmp(t, test.dst.Path)
 			}
 		})
 	}
@@ -177,7 +144,7 @@ func TestGet(t *testing.T) {
 			}
 			if test.create {
 				splitPath := strings.Split(test.src.Path, "/")
-				Assert(t, node.Name, splitPath[len(splitPath)-1])
+				Assert(t, node.URI.Name, splitPath[len(splitPath)-1])
 				RemoveTmp(t, test.src.Path)
 			}
 		})

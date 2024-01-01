@@ -14,6 +14,9 @@ type LocalFS struct{}
 
 func NewLocalFS() *LocalFS { return &LocalFS{} }
 
+func (LocalFS) Connect() error    { return nil }
+func (LocalFS) Disconnect() error { return nil }
+
 func (LocalFS) Writer(name URI) (io.WriteCloser, error) {
 	return os.Create(name.Path)
 }
@@ -50,46 +53,6 @@ func (l *LocalFS) Delete(name URI, recursive bool) error {
 }
 
 /*
-Use os package to move file, mapping errors to custom errors
-
-retruns:
-  - ErrNotFound if source file does not exist
-  - ErrDirNotEmpty if directory is not empty
-  - ErrAlreadyExists if destination already exists
-*/
-func (l *LocalFS) Move(src, dst URI, recursive bool) error {
-	srcInfo, err := os.Stat(src.Path)
-	if errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("%w : %s", ErrNotFound, src)
-	}
-	if srcInfo.IsDir() && !recursive {
-		empty, err := l.IsEmpty(src)
-		if err != nil {
-			return err
-		} else if !empty {
-			return fmt.Errorf("%w : %s", ErrDirNotEmpty, src)
-		}
-	}
-	dstInfo, err := os.Stat(dst.Path)
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return err
-	}
-	if dstInfo.IsDir() {
-		dst.Path = filepath.Join(dst.Path, filepath.Base(src.Path))
-	}
-	if exists, err := l.Exists(dst); exists {
-		if err != nil {
-			return err
-		}
-		return ErrAlreadyExists
-	} else if !exists && err == nil {
-		return os.Rename(src.Path, dst.Path)
-	} else {
-		return err
-	}
-}
-
-/*
 Use os package to copy file, mapping errors to custom errors
 
 returns:
@@ -108,23 +71,21 @@ func (l *LocalFS) Copy(src, dst URI, recursive bool) error {
 	}
 
 	if !srcInfo.IsDir() {
-		return CopyFile(src, dst)
+		return CopyLocalFile(src, dst)
 	} else {
 		entries, err := os.ReadDir(src.Path)
 		if err != nil {
 			return err
 		}
 		for _, entry := range entries {
-
 			srcPath := AppendURIPath(src, entry.Name())
 			dstPath := AppendURIPath(dst, entry.Name())
-
 			if entry.IsDir() {
 				if err := l.Copy(srcPath, dstPath, true); err != nil {
 					return err
 				}
 			} else {
-				if err := CopyFile(srcPath, dstPath); err != nil {
+				if err := CopyLocalFile(srcPath, dstPath); err != nil {
 					return err
 				}
 			}
@@ -156,14 +117,13 @@ func (l *LocalFS) List(dir URI, recursive bool) ([]Node, error) {
 		if err != nil {
 			return err
 		}
-		// Skip the root directory itself
-		if path == dir.Path {
+		if dir.Path == path && info.IsDir() {
 			return nil
 		}
 		if info.IsDir() {
-			files = append(files, NewNode(path, true))
+			files = append(files, NewNode(NewURI(dir.Scheme, path), true))
 		} else {
-			files = append(files, NewNode(path, false))
+			files = append(files, NewNode(NewURI(dir.Scheme, path), false))
 		}
 
 		// Skip directories if not recursive mode
@@ -178,8 +138,8 @@ func (l *LocalFS) List(dir URI, recursive bool) ([]Node, error) {
 	return files, nil
 }
 
-// CopyFile copies a single file from src to dst
-func CopyFile(src, dst URI) error {
+// CopyLocalFile copies a single file from src to dst
+func CopyLocalFile(src, dst URI) error {
 	in, err := os.Open(src.Path)
 	if err != nil {
 		return err
@@ -230,11 +190,11 @@ func (l *LocalFS) Get(path URI) (Node, error) {
 	info, err := os.Stat(path.Path)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return Node{FullPath: path.Path}, fmt.Errorf("%w : %s", ErrNotFound, path)
+			return Node{URI: path}, fmt.Errorf("%w : %s", ErrNotFound, path)
 		}
-		return Node{FullPath: path.Path}, err
+		return Node{URI: path}, err
 	}
-	return NewNode(path.Path, info.IsDir()), nil
+	return NewNode(path, info.IsDir()), nil
 }
 
 func (l *LocalFS) IsEmpty(path URI) (bool, error) {
@@ -262,15 +222,16 @@ Returns newly created Node or error:
   - ErrAlreadyExists if path already exists
 */
 func (l *LocalFS) MkDir(path URI) (Node, error) {
+	node := NewNode(path, true)
 	_, err := os.Stat(path.Path)
 	if errors.Is(err, fs.ErrNotExist) {
 		if err := os.MkdirAll(path.Path, 0755); err != nil {
-			return Node{FullPath: path.Path}, err
+			return node, err
 		}
-		return NewNode(path.Path, true), nil
+		return node, nil
 	} else if err != nil {
-		return Node{FullPath: path.Path}, err
+		return node, err
 	} else {
-		return Node{FullPath: path.Path}, ErrAlreadyExists
+		return node, ErrAlreadyExists
 	}
 }
