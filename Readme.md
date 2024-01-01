@@ -14,79 +14,29 @@ This tool is capable of handling basic operations across various file systems, s
 - **Local File System:** Directly manage files on your local machine.
 - **Google Cloud Platform (GCP):** Use Google Storage (GS) buckets as file systems.
 
+
 ## Installation
 
-### 1. Setup env variables
+Download binary or build from source, test the installation with `fileb` or `go run .`
 
-|            Env Var             | Default |                Description                |
-| :----------------------------: | :-----: | :---------------------------------------: |
-| GOOGLE_APPLICATION_CREDENTIALS |  None   | (Optional) Used by GGP Storage FileSystem |
+Set GOOGLE_APPLICATION_CREDENTALS env var if you plan to use GS filesystems.
 
+## [CLI](https://github.com/B87/file-bridge/wiki/CLI)
 
-### 2. (Optional) Run bash install script 
+The CLI allows to easily manage files from multiple file systems or storages from the terminal.
 
-`sudo bash scripts/install.sh`
+`fileb cp -r ~/folder gs://mybucket`
 
-This script will build from source and add the binary to /usr/local/bin 
+See also `fileb -h`
 
-Assumptions:
-- Go is installed and available in your path
-- /usr/local/bin exists and is inside $PATH
-  
-### 3. Run
+## [Packages (pkg)](https://github.com/B87/file-bridge/wiki/Packages)
 
-`fileb` or `go run .`
-
-## CLI
-
-### List
-
-`fileb help ls`
-
-|            Example            |           Description            |
-| :---------------------------: | :------------------------------: |
-|         `fileb ls ~/`         | Lists local filesystem user home |
-| `fileb ls gs://bucket/folder` |    Lists folder of GS bucket     |
-
-
-### Copy
-`fileb help cp`
-
-
-|                   Example                   |                 Description                 |
-| :-----------------------------------------: | :-----------------------------------------: |
-|      `fileb cp ~/example.txt ~/folder`      | Copy local file example.txt to local folder |
-| `fileb cp ~/example.txt gs://bucket/folder` |    Lists "folder" of GS bucket "bucket"     |
-
-### Move
-`fileb help mv`
-
-|                   Example                   |                 Description                 |
-| :-----------------------------------------: | :-----------------------------------------: |
-|      `fileb cp ~/example.txt ~/folder`      | Copy local file example.txt to local folder |
-| `fileb cp ~/example.txt gs://bucket/folder` |   Lists "folder" from GS bucket "bucket"    |
-
-### Remove
-`fileb help rm`
-
-|             Example              |               Description               |
-| :------------------------------: | :-------------------------------------: |
-|     `fileb rm ~/example.txt`     |      Remove local file example.txt      |
-| `fileb rm -r gs://bucket/folder` | Remove "folder" from GS bucket "bucket" |
-
-### Make Dir
-`fileb help mkdir`
-|             Example              |          Description           |
-| :------------------------------: | :----------------------------: |
-|      `fileb mkdir ~/folder`      |   Creates local empty folder   |
-| `fileb mkdir gs://bucket/folder` | Creates empty folder GS bucket |
-
-## Packages (pkg)
+This is a collection of code used in the application meant to be reused in other go projects.
 
 ### filesys
 
-Manage files and file systems
+Manage files and file systems.
 
 ### image
 
-Adapted version of [imaging](https://github.com/disintegration/imaging) to manipulate images
+Adapted version of [imaging](https://github.com/disintegration/imaging) to manipulate images.
