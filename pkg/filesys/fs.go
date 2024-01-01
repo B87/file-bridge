@@ -111,7 +111,7 @@ const (
 
 func ValidScheme(scheme string) bool {
 	switch scheme {
-	case string(LocalScheme), string(GCPBucketScheme):
+	case LocalScheme, GCPBucketScheme:
 		return true
 	default:
 		return false
