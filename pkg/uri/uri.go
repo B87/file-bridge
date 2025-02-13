@@ -1,7 +1,9 @@
 package uri
 
 import (
+	"database/sql/driver"
 	"errors"
+	"fmt"
 	"path"
 	"regexp"
 )
@@ -13,7 +15,7 @@ var (
 
 const (
 	EmptyScheme     string = ""
-	LocalScheme     string = "local"
+	LocalScheme     string = "file"
 	GCPBucketScheme string = "gs"
 	AWSScheme       string = "s3"
 	DriveScheme     string = "gdrive"
@@ -117,4 +119,67 @@ func MustParse(raw string) URI {
 		panic(err)
 	}
 	return uri
+}
+
+// MarshalJSON implements json.Marshaler
+func (u URI) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + u.String() + `"`), nil
+}
+
+// UnmarshalJSON implements json.Unmarshaler
+func (u *URI) UnmarshalJSON(data []byte) error {
+	// Remove quotes
+	if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
+		return errors.New("invalid JSON string for URI")
+	}
+	str := string(data[1 : len(data)-1])
+
+	parsed, err := Parse(str)
+	if err != nil {
+		return err
+	}
+	*u = parsed
+	return nil
+}
+
+// MarshalText implements encoding.TextMarshaler
+func (u URI) MarshalText() ([]byte, error) {
+	return []byte(u.String()), nil
+}
+
+// UnmarshalText implements encoding.TextUnmarshaler
+func (u *URI) UnmarshalText(text []byte) error {
+	parsed, err := Parse(string(text))
+	if err != nil {
+		return err
+	}
+	*u = parsed
+	return nil
+}
+
+// Value implements the driver.Valuer interface
+func (u URI) Value() (driver.Value, error) {
+	return u.String(), nil
+}
+
+// Scan implements the sql.Scanner interface
+func (u *URI) Scan(value interface{}) error {
+	switch v := value.(type) {
+	case string:
+		parsed, err := Parse(v)
+		if err != nil {
+			return err
+		}
+		*u = parsed
+		return nil
+	case []byte:
+		parsed, err := Parse(string(v))
+		if err != nil {
+			return err
+		}
+		*u = parsed
+		return nil
+	default:
+		return fmt.Errorf("cannot scan type %T into URI", value)
+	}
 }

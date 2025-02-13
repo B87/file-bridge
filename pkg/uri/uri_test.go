@@ -1,6 +1,10 @@
 package uri
 
-import "testing"
+import (
+	"database/sql/driver"
+	"encoding/json"
+	"testing"
+)
 
 func TestParseURI(t *testing.T) {
 	testCases := []struct {
@@ -12,47 +16,47 @@ func TestParseURI(t *testing.T) {
 		{
 			name:     "empty scheme (local path)",
 			raw:      "/home/user/file.txt",
-			expected: URI{Scheme: "local", Path: "/home/user/file.txt", Name: "file.txt"},
+			expected: URI{Scheme: LocalScheme, Path: "/home/user/file.txt", Name: "file.txt"},
 		},
 		{
 			name:     "local scheme",
-			raw:      "local://home/user/file.txt",
-			expected: URI{Scheme: "local", Path: "home/user/file.txt", Name: "file.txt"},
+			raw:      "file://home/user/file.txt",
+			expected: URI{Scheme: LocalScheme, Path: "home/user/file.txt", Name: "file.txt"},
 		},
 		{
 			name:     "s3 scheme",
 			raw:      "s3://my-bucket/path/to/object.json",
-			expected: URI{Scheme: "s3", Path: "my-bucket/path/to/object.json", Name: "object.json"},
+			expected: URI{Scheme: AWSScheme, Path: "my-bucket/path/to/object.json", Name: "object.json"},
 		},
 		{
 			name:     "gs scheme",
 			raw:      "gs://my-bucket/path/to/object.txt",
-			expected: URI{Scheme: "gs", Path: "my-bucket/path/to/object.txt", Name: "object.txt"},
+			expected: URI{Scheme: GCPBucketScheme, Path: "my-bucket/path/to/object.txt", Name: "object.txt"},
 		},
 		{
 			name:     "https scheme",
 			raw:      "https://example.com/path/to/resource.pdf",
-			expected: URI{Scheme: "https", Path: "example.com/path/to/resource.pdf", Name: "resource.pdf"},
+			expected: URI{Scheme: HTTPSScheme, Path: "example.com/path/to/resource.pdf", Name: "resource.pdf"},
 		},
 		{
 			name:     "http scheme",
 			raw:      "http://example.com/path/to/resource.html",
-			expected: URI{Scheme: "http", Path: "example.com/path/to/resource.html", Name: "resource.html"},
+			expected: URI{Scheme: HTTPScheme, Path: "example.com/path/to/resource.html", Name: "resource.html"},
 		},
 		{
 			name:     "gdrive scheme",
 			raw:      "gdrive://folder-id/document.doc",
-			expected: URI{Scheme: "gdrive", Path: "folder-id/document.doc", Name: "document.doc"},
+			expected: URI{Scheme: DriveScheme, Path: "folder-id/document.doc", Name: "document.doc"},
 		},
 		{
 			name:     "with query parameters",
 			raw:      "https://example.com/path?key=value&foo=bar",
-			expected: URI{Scheme: "https", Path: "example.com/path", Query: "key=value&foo=bar", Name: "path"},
+			expected: URI{Scheme: HTTPSScheme, Path: "example.com/path", Query: "key=value&foo=bar", Name: "path"},
 		},
 		{
 			name:     "with fragment",
 			raw:      "https://example.com/doc.html#section1",
-			expected: URI{Scheme: "https", Path: "example.com/doc.html", Fragment: "section1", Name: "doc.html"},
+			expected: URI{Scheme: HTTPSScheme, Path: "example.com/doc.html", Fragment: "section1", Name: "doc.html"},
 		},
 		{
 			name:    "invalid scheme",
@@ -127,6 +131,99 @@ func TestURIString(t *testing.T) {
 			result := tc.uri.String()
 			if result != tc.expected {
 				t.Errorf("expected %v, got %v", tc.expected, result)
+			}
+		})
+	}
+}
+
+func TestURIJSON(t *testing.T) {
+	tests := []struct {
+		name    string
+		uri     URI
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "local file",
+			uri:  URI{Scheme: "file", Path: "/path/to/file.txt"},
+			want: `"file:///path/to/file.txt"`,
+		},
+		{
+			name: "s3 with query and fragment",
+			uri:  URI{Scheme: "s3", Path: "bucket/object", Query: "version=1", Fragment: "part1"},
+			want: `"s3://bucket/object?version=1#part1"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Test marshaling
+			got, err := json.Marshal(tt.uri)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("MarshalJSON() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if string(got) != tt.want {
+				t.Errorf("MarshalJSON() = %v, want %v", string(got), tt.want)
+			}
+
+			// Test unmarshaling
+			var u URI
+			err = json.Unmarshal([]byte(tt.want), &u)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("UnmarshalJSON() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if u.String() != tt.uri.String() {
+				t.Errorf("UnmarshalJSON() = %v, want %v", u, tt.uri)
+			}
+		})
+	}
+}
+
+func TestURISQL(t *testing.T) {
+	tests := []struct {
+		name    string
+		uri     URI
+		value   interface{} // for Scan testing
+		want    driver.Value
+		wantErr bool
+	}{
+		{
+			name:  "local file",
+			uri:   URI{Scheme: "file", Path: "/path/to/file.txt"},
+			value: "file:///path/to/file.txt",
+			want:  "file:///path/to/file.txt",
+		},
+		{
+			name:  "s3 path",
+			uri:   URI{Scheme: "s3", Path: "bucket/object"},
+			value: []byte("s3://bucket/object"),
+			want:  "s3://bucket/object",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Test Value()
+			got, err := tt.uri.Value()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Value() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("Value() = %v, want %v", got, tt.want)
+			}
+
+			// Test Scan()
+			var u URI
+			err = u.Scan(tt.value)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Scan() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if u.String() != tt.uri.String() {
+				t.Errorf("Scan() = %v, want %v", u, tt.uri)
 			}
 		})
 	}
