@@ -3,7 +3,7 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/B87/file-bridge/pkg/filesys"
+	"github.com/B87/file-bridge/pkg/uri"
 )
 
 var mkdirCmd = &cobra.Command{
@@ -13,11 +13,12 @@ var mkdirCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		verbose, _ := cmd.Flags().GetBool("verbose")
-		logger := NewLogger(verbose)
-		logger.Debug("Creating directory", args[0], "...")
-		uri, err := filesys.ParseURI(args[0])
+		if verbose {
+			cmd.Println("Creating directory", args[0], "...")
+		}
+		uri, err := uri.Parse(args[0])
 		fatalIfError(err)
-		_, err = filesys.MkDir(uri)
+		_, err = cmdManager.MkDir(cmd.Context(), uri)
 		fatalIfError(err)
 	},
 }

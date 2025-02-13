@@ -3,3 +3,8 @@ fileb
 _fileb
 .vscode
 .coverage
+.env
+.cursorignore
+.fileb.yaml
+/local/
+taskfile.yaml

@@ -1,7 +1,8 @@
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/54e6788204d54ffeb627e2da1958c9cc)](https://app.codacy.com/gh/B87/file-bridge/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade) [![Codacy Badge](https://app.codacy.com/project/badge/Coverage/54e6788204d54ffeb627e2da1958c9cc)](https://app.codacy.com/gh/B87/file-bridge/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_coverage) ![build main](https://github.com/B87/file-bridge/actions/workflows/go.yml/badge.svg?branch=main)
 # File Bridge: Go Multi-tool for File Manipulation across File Systems
 
-File Bridge (fileb) is a versatile tool developed in Go (Golang) designed for efficient file and directory manipulation. It provides both a Command-Line Interface (CLI) and a library. 
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/54e6788204d54ffeb627e2da1958c9cc)](https://app.codacy.com/gh/B87/file-bridge/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade) [![Codacy Badge](https://app.codacy.com/project/badge/Coverage/54e6788204d54ffeb627e2da1958c9cc)](https://app.codacy.com/gh/B87/file-bridge/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_coverage) ![build main](https://github.com/B87/file-bridge/actions/workflows/go.yml/badge.svg?branch=main)
+
+File Bridge (fileb) is a versatile tool developed in Go (Golang) designed for efficient file and directory manipulation. It provides both a Command-Line Interface (CLI) and a library.
 This tool is capable of handling basic operations across various file systems, streamlining the process of managing files seamlessly.
 
 ## Key Features
@@ -13,7 +14,6 @@ This tool is capable of handling basic operations across various file systems, s
 
 - **Local File System:** Directly manage files on your local machine.
 - **Google Cloud Platform (GCP):** Use Google Storage (GS) buckets as file systems.
-
 
 ## Installation
 
@@ -33,10 +33,10 @@ See also `fileb -h`
 
 This is a collection of code used in the application meant to be reused in other go projects.
 
-### filesys
+### filesystem
 
-Manage files and file systems.
+Filesystems that implement the `filesystem.FS` interface.
 
-### image
+### manager
 
-Adapted version of [imaging](https://github.com/disintegration/imaging) to manipulate images.
+Manage files and folders across multiple file systems.

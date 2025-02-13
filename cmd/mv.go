@@ -1,11 +1,13 @@
 package cmd
 
 import (
+	"context"
 	"log"
 
+	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 
-	"github.com/B87/file-bridge/pkg/filesys"
+	"github.com/B87/file-bridge/pkg/uri"
 )
 
 var mvCmd = &cobra.Command{
@@ -16,16 +18,27 @@ var mvCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		recursive, _ := cmd.Flags().GetBool("recursive")
 		verbose, _ := cmd.Flags().GetBool("verbose")
-		logger := NewLogger(verbose)
-
+		if verbose {
+			cmd.Println("Moving", args[0], "to", args[1], "...")
+		}
 		source, dest := validateArgs(args)
-		srcURI, err := filesys.ParseURI(source)
+		srcURI, err := uri.Parse(source)
 		fatalIfError(err)
-		destURI, err := filesys.ParseURI(dest)
+		destURI, err := uri.Parse(dest)
 		fatalIfError(err)
 
-		filesys.Move(srcURI, destURI, recursive)
-		logger.Debug("File moved")
+		bar := progressbar.DefaultBytes(
+			-1,
+			"Moving",
+		)
+
+		ctx := context.WithValue(cmd.Context(), "progressbar", bar)
+		err = cmdManager.Move(ctx, srcURI, destURI, recursive)
+		fatalIfError(err)
+
+		if verbose {
+			cmd.Println("\nFile moved")
+		}
 	},
 }
 
@@ -46,5 +59,6 @@ func validateArgs(args []string) (string, string) {
 }
 
 func init() {
+	mvCmd.Flags().BoolP("recursive", "r", false, "Move parent directories if they do not exist")
 	RootCmd.AddCommand(mvCmd)
 }
