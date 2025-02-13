@@ -8,8 +8,16 @@ import (
 	"github.com/B87/file-bridge/pkg/filesystem/local"
 )
 
+// FSConfig is a configuration for a file system.
+type FSConfig struct {
+	Name    string
+	Type    string
+	Default bool
+	Config  map[string]interface{}
+}
+
 type Config struct {
-	FsConfigs []filesystem.Config
+	FsConfigs []FSConfig
 	FsMap     map[string]filesystem.FS
 }
 
@@ -21,7 +29,7 @@ func DefaultConfig() *Config {
 	fsMap["gs"] = gs.NewGCPBucketFS(context.Background())
 
 	return &Config{
-		FsConfigs: []filesystem.Config{
+		FsConfigs: []FSConfig{
 			{
 				Name: "local",
 				Type: "local",

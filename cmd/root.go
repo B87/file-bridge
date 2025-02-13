@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	_ "github.com/lib/pq"
 	"github.com/spf13/cobra"
@@ -11,13 +12,16 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/sdk/trace"
 
-	"github.com/B87/file-bridge/pkg/filesystem"
 	"github.com/B87/file-bridge/pkg/manager"
 	"github.com/B87/file-bridge/pkg/telemetry"
 )
 
 func init() {
 	RootCmd.PersistentFlags().BoolP("verbose", "v", false, "Verbose, default false")
+	RootCmd.SetHelpCommand(&cobra.Command{
+		Use:    "no-help",
+		Hidden: true,
+	})
 }
 
 var cmdManager = initManager()
@@ -66,7 +70,7 @@ func readFilebConfig() (*manager.Config, error) {
 		return nil, err
 	}
 
-	fsConfigs := []filesystem.Config{}
+	fsConfigs := []manager.FSConfig{}
 	for _, fsConfig := range config.Filesystems {
 		switch fsConfig.Type {
 		case "local":
@@ -74,7 +78,7 @@ func readFilebConfig() (*manager.Config, error) {
 			if err := remapConfig(fsConfig, &localConfig); err != nil {
 				fatalIfError(fmt.Errorf("invalid local filesystem config: %w", err))
 			}
-			fsConfigs = append(fsConfigs, filesystem.Config{
+			fsConfigs = append(fsConfigs, manager.FSConfig{
 				Name:    fsConfig.Name,
 				Type:    fsConfig.Type,
 				Default: fsConfig.Default,
@@ -87,7 +91,7 @@ func readFilebConfig() (*manager.Config, error) {
 			if err := remapConfig(fsConfig, &s3Config); err != nil {
 				fatalIfError(fmt.Errorf("invalid S3 filesystem config: %w", err))
 			}
-			fsConfigs = append(fsConfigs, filesystem.Config{
+			fsConfigs = append(fsConfigs, manager.FSConfig{
 				Name:    fsConfig.Name,
 				Type:    fsConfig.Type,
 				Default: fsConfig.Default,
@@ -104,7 +108,7 @@ func readFilebConfig() (*manager.Config, error) {
 			if err := remapConfig(fsConfig, &gsConfig); err != nil {
 				fatalIfError(fmt.Errorf("invalid GS filesystem config: %w", err))
 			}
-			fsConfigs = append(fsConfigs, filesystem.Config{
+			fsConfigs = append(fsConfigs, manager.FSConfig{
 				Name:    fsConfig.Name,
 				Type:    fsConfig.Type,
 				Default: fsConfig.Default,
@@ -164,4 +168,90 @@ func InitConsoleTracer() (*trace.TracerProvider, error) {
 	)
 	otel.SetTracerProvider(tp)
 	return tp, nil
+}
+
+func fatalIfError(err error) {
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}
+
+func formatSize(size int64) string {
+	const unit = 1024
+	if size < unit {
+		return fmt.Sprintf("%d B", size)
+	}
+	div, exp := int64(unit), 0
+	for n := size / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
+}
+
+func formatRelativeTime(t time.Time) string {
+	now := time.Now()
+	diff := now.Sub(t)
+
+	switch {
+	case diff < time.Minute:
+		return "just now"
+	case diff < time.Hour:
+		return fmt.Sprintf("%dm ago", int(diff.Minutes()))
+	case diff < 24*time.Hour:
+		return fmt.Sprintf("%dh ago", int(diff.Hours()))
+	case diff < 48*time.Hour:
+		return "yesterday"
+	case diff < 168*time.Hour:
+		return fmt.Sprintf("%dd ago", int(diff.Hours()/24))
+	default:
+		return t.Format("Jan 02, 2006")
+	}
+}
+
+type FilebConfig struct {
+	Filesystems []FilesystemConfig `mapstructure:"filesystems"`
+	Storage     StorageConfig      `mapstructure:"storage"`
+}
+
+type StorageConfig struct {
+	Type string `mapstructure:"type"`
+	DB   string `mapstructure:"db"`
+}
+
+// BaseFilesystemConfig contains common fields for all filesystem types
+type BaseFilesystemConfig struct {
+	Name    string `mapstructure:"name"`
+	Type    string `mapstructure:"type"`
+	Default bool   `mapstructure:"default"`
+}
+
+// LocalFilesystemConfig for local filesystem
+type LocalFilesystemConfig struct {
+	BaseFilesystemConfig `mapstructure:",squash"`
+	Path                 string `mapstructure:"path"`
+}
+
+// S3FilesystemConfig for S3 filesystem
+type S3FilesystemConfig struct {
+	BaseFilesystemConfig `mapstructure:",squash"`
+	Endpoint             string `mapstructure:"endpoint"`
+	Region               string `mapstructure:"region"`
+	Bucket               string `mapstructure:"bucket"`
+	AccessKey            string `mapstructure:"access-key"`
+	SecretKey            string `mapstructure:"secret-key"`
+}
+
+// GSFilesystemConfig for Google Cloud Storage
+type GSFilesystemConfig struct {
+	BaseFilesystemConfig `mapstructure:",squash"`
+	Bucket               string `mapstructure:"bucket"`
+	CredentialsFile      string `mapstructure:"credentials-file"`
+}
+
+// FilesystemConfig is now a wrapper that can hold any type of filesystem config
+type FilesystemConfig struct {
+	BaseFilesystemConfig `mapstructure:",squash"`
+	Config               map[string]interface{} `mapstructure:",remain"`
 }

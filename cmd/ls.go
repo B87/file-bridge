@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 
 	"github.com/B87/file-bridge/pkg/filesystem"
@@ -40,11 +38,11 @@ func init() {
 func printList(cmd *cobra.Command, tree filesystem.NodeTree) {
 	// Skip printing the root node (current directory)
 	for _, child := range tree.Children {
-		printNode(child, "", true)
+		printNode(cmd, child, "", true)
 	}
 }
 
-func printNode(tree filesystem.NodeTree, prefix string, isLast bool) {
+func printNode(cmd *cobra.Command, tree filesystem.NodeTree, prefix string, isLast bool) {
 	// Create branch symbols
 	branch := "├── "
 	if isLast {
@@ -54,9 +52,9 @@ func printNode(tree filesystem.NodeTree, prefix string, isLast bool) {
 	// Print the current node
 	nodePrefix := prefix + branch
 	if tree.Node.IsDir {
-		fmt.Printf("%s%s/\n", nodePrefix, tree.Node.Name)
+		cmd.Printf("%s%s/\n", nodePrefix, tree.Node.Name)
 	} else {
-		fmt.Printf("%s%s\n", nodePrefix, tree.Node.Name)
+		cmd.Printf("%s%s\n", nodePrefix, tree.Node.Name)
 	}
 
 	// Print children with updated prefix
@@ -69,6 +67,6 @@ func printNode(tree filesystem.NodeTree, prefix string, isLast bool) {
 
 	for i, child := range tree.Children {
 		isLastChild := i == len(tree.Children)-1
-		printNode(child, childPrefix, isLastChild)
+		printNode(cmd, child, childPrefix, isLastChild)
 	}
 }

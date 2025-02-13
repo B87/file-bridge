@@ -5,6 +5,9 @@ import (
 	"errors"
 	"io"
 	"io/fs"
+	"os"
+	"path"
+	"time"
 
 	"github.com/B87/file-bridge/pkg/uri"
 )
@@ -20,9 +23,6 @@ var (
 	ErrAlreadyExists = fs.ErrExist
 
 	ErrDirNotEmpty = errors.New("directory not empty")
-
-	ErrConnecting    = errors.New("failed to connect filesystem")
-	ErrDisconnecting = errors.New("failed to disconnect filesystem")
 )
 
 // FS is an abstraction for file system operations.
@@ -54,4 +54,32 @@ type Writer interface {
 
 	// Copy copies a file or directory on the same file system.
 	Copy(ctx context.Context, src, dst uri.URI) error
+}
+
+// Node represents a single file or directory in a filesystem.
+type Node struct {
+	URI   uri.URI
+	IsDir bool
+
+	Name    string
+	Path    string
+	Size    int64
+	Mode    os.FileMode
+	ModTime time.Time
+}
+
+// NewNode creates a new Node from a URI.
+func NewNode(uri uri.URI, isDir bool) Node {
+	return Node{
+		URI:   uri,
+		IsDir: isDir,
+		Name:  path.Base(uri.Path),
+		Path:  uri.Path,
+	}
+}
+
+// NodeTree is a hierarchical representation of one Node + any child nodes.
+type NodeTree struct {
+	Node     Node
+	Children []NodeTree
 }

@@ -7,7 +7,7 @@ import (
 )
 
 var mkdirCmd = &cobra.Command{
-	Use:   "mkdir [path]",
+	Use:   "mkdir [directory]",
 	Short: "Create a directory",
 	Long:  `Create a directory`,
 	Args:  cobra.ExactArgs(1),
